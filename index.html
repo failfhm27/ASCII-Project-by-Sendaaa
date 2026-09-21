@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Video Player</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display&family=Arial:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background-color: #0d0809;
+            background-image: 
+                linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), 
+                url('background.jpg'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: #E2B4BD;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            font-family: monospace;
+        }
+
+        #player-wrapper {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100vw;
+            height: 90vh;
+        }
+
+        .corner-emoji {
+            position: absolute;
+            font-size: 30px; 
+            z-index: 25;
+            pointer-events: none;
+            filter: drop-shadow(0 0 8px rgba(226, 180, 189, 0.9));
+            opacity: 0; 
+            transition: opacity 0.5s ease-in-out;
+        }
+        .emoji-top-left { top: 20px; left: 20px; }
+        .emoji-top-right { top: 20px; right: 20px; }
+        .emoji-bottom-left { bottom: 20px; left: 20px; }
+        .emoji-bottom-right { bottom: 20px; right: 20px; }
+
+        .active-top-left { opacity: 1; animation: metronomeTopLeft 3s ease-in-out infinite; }
+        .active-top-right { opacity: 1; animation: metronomeTopRight 3s ease-in-out infinite; }
+        .active-bottom-left { opacity: 1; animation: metronomeBottomLeft 3s ease-in-out infinite; }
+        .active-bottom-right { opacity: 1; animation: metronomeBottomRight 3s ease-in-out infinite; }
+
+        @keyframes metronomeTopLeft {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(18deg) scale(1.12); }
+        }
+        @keyframes metronomeTopRight {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(-18deg) scale(1.12); }
+        }
+        @keyframes metronomeBottomLeft {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(-18deg) scale(1.12); }
+        }
+        @keyframes metronomeBottomRight {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(18deg) scale(1.12); }
+        }
+
+        #butterfly-bg {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            object-fit: cover; z-index: 5; pointer-events: none;
+            mix-blend-mode: screen; opacity: 0;
+            transition: opacity 0.8s ease-in;
+        }
+
+        #ascii-container {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            line-height: 0.52;
+            letter-spacing: -0.5px;
+            white-space: pre;
+            font-size: 6px; 
+            text-align: center;
+            user-select: none;
+            opacity: 0;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(226, 180, 189, 0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            display: inline-block;
+            z-index: 8;
+            transition: opacity 0.8s ease-in-out;
+        }
+
+        .ascii-enter {
+            animation: asciiExplodeIn 0.8s ease-out forwards;
+        }
+
+        @keyframes asciiExplodeIn {
+            0% { opacity: 0; transform: scale(0.4); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .ascii-fade-out {
+            opacity: 0 !important;
+        }
+
+        #outro-container {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(226, 180, 189, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            z-index: 9;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.8s ease-in-out;
+        }
+
+        #outro-container img {
+            width: 280px;
+            height: 280px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid rgba(226, 180, 189, 0.3);
+        }
+
+        .outro-fade-in {
+            opacity: 1 !important;
+        }
+
+        .outro-fade-out {
+            opacity: 0 !important;
+        }
+
+        #lyrics-overlay {
+            position: absolute;
+            top: 84%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.8rem;
+            font-family: 'Arial', sans-serif;
+            font-weight: 900;
+            color: #ffffff;
+            text-align: center;
+            pointer-events: none;
+            width: 90%;
+            z-index: 10;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 7px #fff, 0 0 15px #E2B4BD;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        video#webcam { display: none; }
+
+        button#play-btn {
+            position: absolute;
+            top: 45%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 75px; height: 75px;
+            background: rgba(13, 8, 9, 0.65);
+            border: 2px solid #E2B4BD;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 30;
+            box-shadow: 0 0 15px rgba(226, 180, 189, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button#play-btn:focus,
+        button#play-btn:active {
+            outline: none;
+            border-color: #E2B4BD;
+            background: rgba(13, 8, 9, 0.85);
+        }
+
+        .play-icon {
+            width: 0; height: 0;
+            border-top: 12px solid transparent;
+            border-bottom: 12px solid transparent;
+            border-left: 20px solid #E2B4BD;
+            margin-left: 4px;
+        }
+
+        .instructions {
+            position: absolute;
+            top: 56%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(226, 180, 189, 0.6);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            pointer-events: none;
+            text-align: center;
+            width: 100%;
+            z-index: 25;
+        }
+
+        #quote-screen-1, #quote-screen-2, #quote-screen-3 {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            width: 85%;
+            text-align: center;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            font-style: italic;
+            color: #ffffff;
+            z-index: 40;
+            opacity: 0;
+            pointer-events: none;
+            text-shadow: 0 0 12px rgba(226, 180, 189, 0.8);
+        }
+
+        .quote-animate {
+            animation: quoteZoomInOut 4.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes quoteZoomInOut {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+            25% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+            75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+        }
+
+        .fade-out-zoom {
+            animation: zoomOutFade 0.6s forwards ease-in-out !important;
+            pointer-events: none;
+        }
+
+        @keyframes zoomOutFade {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; visibility: hidden; }
+        }
+    </style>
+</head>
+<body>
+
+    <video id="butterfly-bg" autoplay muted loop playsinline preload="auto"></video>
+
+    <audio id="intro-audio" src="intro-lagu.mp3" preload="auto"></audio>
+    <audio id="main-song-audio" src="bianca.mp3" preload="auto"></audio>
+
+    <div id="player-wrapper">
+        <div class="corner-emoji emoji-top-left" id="corner-tl">💖</div>
+        <div class="corner-emoji emoji-top-right" id="corner-tr">💝</div>
+        <div class="corner-emoji emoji-bottom-left" id="corner-bl">💕</div>
+        <div class="corner-emoji emoji-bottom-right" id="corner-br">💘</div>
+
+        <div id="quote-screen-1">✦Dedicated to you💍✦</div>
+        <div id="quote-screen-2">"This is the most breathtaking universe I've ever seen."</div>
+        <div id="quote-screen-3">"I hope happiness always finds you."</div>
+        
+        <div id="ascii-container"></div>
+        
+        <div id="outro-container">
+            <img src="gambar-outro.jpg" alt="Outro">
+        </div>
+
+        <div id="lyrics-overlay"></div>
+        
+        <button id="play-btn"><div class="play-icon"></div></button>
+        <p class="instructions">✦Best viewed in full screen & volume ✦</p>
+    </div>
+    
+    <video id="webcam" src="bianca.mp4" muted playsinline preload="auto"></video>
+    <canvas id="canvas" width="95" height="85" style="display:none;"></canvas>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const butterflyVideo = document.getElementById('butterfly-bg');
+        const introAudio = document.getElementById('intro-audio');
+        const mainSongAudio = document.getElementById('main-song-audio');
+        const outroContainer = document.getElementById('outro-container');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const asciiContainer = document.getElementById('ascii-container');
+        const lyricsOverlay = document.getElementById('lyrics-overlay');
+        const playBtn = document.getElementById('play-btn');
+        const quoteScreen1 = document.getElementById('quote-screen-1');
+        const quoteScreen2 = document.getElementById('quote-screen-2');
+        const quoteScreen3 = document.getElementById('quote-screen-3');
+        
+        const tl = document.getElementById('corner-tl');
+        const tr = document.getElementById('corner-tr');
+        const bl = document.getElementById('corner-bl');
+        const br = document.getElementById('corner-br');
+
+        const density = " .:-=+*#%@";
+
+        const lyricsData = [
+            { time: 0, text: "" },
+            { time: 0.2, text: "Rayumu..." },
+            { time: 2.5, text: "Katakanlah..." },
+            { time: 5.0, text: "Buatku membatu tenang..." },
+            { time: 8.5, text: "Kudiam membisik jangan..." },
+            { time: 11.2, text: "Buatku berpaling..." },
+            { time: 13.0, text: "Mencari cinta yang lain..." },
+            { time: 16.0, text: "Pecahkan senyummu..." },
+            { time: 19.0, text: "Meski..." },
+            { time: 20.5, text: "Kucinta kau dalam hening..." },
+            { time: 24.5, text: "" }
+        ];
+
+        let transitionTriggered = false;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            butterflyVideo.src = "kupu.mp4";
+            butterflyVideo.load();
+            butterflyVideo.addEventListener('canplay', () => {
+                butterflyVideo.play().then(() => {
+                    butterflyVideo.style.opacity = '0.7';
+                }).catch(e => console.log("Autoplay kupu.mp4 dicegah browser:", e));
+            }, { once: true });
+        });
+
+        playBtn.addEventListener('click', () => {
+            playBtn.classList.add('fade-out-zoom');
+            const instructions = document.querySelector('.instructions');
+            if (instructions) instructions.classList.add('fade-out-zoom');
+
+            introAudio.load();
+            mainSongAudio.load();
+
+            introAudio.volume = 1.0;
+            introAudio.play().catch(err => console.log("Gagal memutar intro audio:", err));
+
+            setTimeout(() => {
+                playBtn.style.display = 'none';
+                if (instructions) instructions.style.display = 'none';
+
+                quoteScreen1.classList.add('quote-animate');
+
+                setTimeout(() => {
+                    quoteScreen1.style.display = 'none';
+                    quoteScreen2.classList.add('quote-animate');
+
+                    setTimeout(() => {
+                        quoteScreen2.style.display = 'none';
+                        quoteScreen3.classList.add('quote-animate');
+
+                        setTimeout(() => {
+                            let fadeAudio = setInterval(() => {
+                                if (introAudio.volume > 0.02) {
+                                    introAudio.volume = Math.max(0, introAudio.volume - 0.02);
+                                } else {
+                                    introAudio.volume = 0;
+                                    introAudio.pause();
+                                    clearInterval(fadeAudio);
+                                }
+                            }, 45); 
+                        }, 1800); 
+
+                        setTimeout(() => {
+                            asciiContainer.classList.add('ascii-enter');
+                            
+                            tl.classList.add('active-top-left');
+                            tr.classList.add('active-top-right');
+                            bl.classList.add('active-bottom-left');
+                            br.classList.add('active-bottom-right');
+
+                            mainSongAudio.currentTime = 0;
+                            mainSongAudio.play().catch(err => console.log("Gagal memutar bianca.mp3:", err));
+
+                            video.currentTime = 0;
+                            video.play().then(() => {
+                                render();
+                            }).catch((err) => {
+                                alert("Gagal memutar video: " + err);
+                            });
+                        }, 3500); 
+
+                    }, 4700); 
+
+                }, 4700); 
+
+            }, 600);
+        });
+
+        video.addEventListener('timeupdate', () => {
+            if (video.duration && video.currentTime >= video.duration - 0.3 && !transitionTriggered) {
+                transitionTriggered = true;
+                
+                asciiContainer.classList.add('ascii-fade-out');
+
+                setTimeout(() => {
+                    asciiContainer.style.display = 'none';
+                    outroContainer.classList.add('outro-fade-in');
+                }, 400);
+            }
+        });
+
+        mainSongAudio.addEventListener('timeupdate', () => {
+            const currentTime = mainSongAudio.currentTime;
+
+            if (currentTime >= 24.8) {
+                outroContainer.classList.remove('outro-fade-in');
+                outroContainer.classList.add('outro-fade-out');
+            }
+
+            let currentText = "";
+            for (let i = 0; i < lyricsData.length; i++) {
+                if (currentTime >= lyricsData[i].time) {
+                    currentText = lyricsData[i].text;
+                }
+            }
+            lyricsOverlay.innerText = currentText;
+        });
+
+        function render() {
+            if (video.paused || video.ended) return;
+
+            if (video.readyState >= 2) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const pixels = imgData.data;
+                let asciiText = "";
+
+                for (let y = 0; y < canvas.height; y++) {
+                    for (let x = 0; x < canvas.width; x++) {
+                        const index = (x + y * canvas.width) * 4;
+                        const r = pixels[index];
+                        const g = pixels[index + 1];
+                        const b = pixels[index + 2];
+
+                        const avg = (r + g + b) / 3;
+                        const charIndex = Math.floor((avg / 255) * (density.length - 1));
+                        const c = density[charIndex];
+
+                        asciiText += (c === " ") ? " " : c;
+                    }
+                    asciiText += "\n";
+                }
+
+                asciiContainer.textContent = asciiText;
+            }
+
+            if (!video.ended) {
+                requestAnimationFrame(render);
+            }
+        }
+    </script>
+</body>
+</html>
